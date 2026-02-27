@@ -5,6 +5,7 @@ const container = document.getElementById('game-container');
 
 // UI Selection
 const scoreDisplay = document.getElementById('score-display');
+const heartsDisplay = document.getElementById('hearts-display');
 const startScreen = document.getElementById('start-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
 const startBtn = document.getElementById('start-btn');
@@ -18,6 +19,8 @@ const btnFire = document.getElementById('btn-fire');
 
 let GAME_STATE = 'START'; // START, PLAYING, GAMEOVER
 let score = 0;
+const maxHearts = 10;
+let hearts = maxHearts;
 let lastTime = 0;
 
 // Handle dynamic resizing
@@ -37,15 +40,15 @@ function initAudio() {
 
 function playSound(type) {
     if (!audioCtx) return;
-    
+
     const osc = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
-    
+
     osc.connect(gainNode);
     gainNode.connect(audioCtx.destination);
-    
+
     const now = audioCtx.currentTime;
-    
+
     if (type === 'shoot') {
         osc.type = 'square';
         osc.frequency.setValueAtTime(880, now);
@@ -91,7 +94,7 @@ window.addEventListener('keyup', (e) => {
 
 // Touch controls mappings
 function bindTouch(element, keyName) {
-    if(!element) return;
+    if (!element) return;
     element.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
     element.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
     element.addEventListener('touchcancel', (e) => { e.preventDefault(); keys[keyName] = false; });
@@ -144,12 +147,12 @@ function buildSprites() {
     for (const [name, def] of Object.entries(spriteDefinitions)) {
         const height = def.data.length;
         const width = def.data[0].length;
-        
+
         const c = document.createElement('canvas');
         c.width = width * scale;
         c.height = height * scale;
         const cx = c.getContext('2d');
-        
+
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const char = def.data[y][x];
@@ -172,15 +175,15 @@ class Player {
         this.height = sprites.player.height;
         this.x = canvas.width / 2 - this.width / 2;
         this.y = canvas.height - this.height - 100; // Offset above thumbs
-        this.speed = 250; 
+        this.speed = 250;
         this.cooldown = 0;
-        this.fireRate = 0.2; 
+        this.fireRate = 0.2;
     }
 
     update(dt) {
         if (keys.left) this.x -= this.speed * dt;
         if (keys.right) this.x += this.speed * dt;
-        
+
         // Boundaries
         if (this.x < 0) this.x = 0;
         if (this.x > canvas.width - this.width) this.x = canvas.width - this.width;
@@ -203,9 +206,9 @@ class Player {
     draw(ctx) {
         // Thruster flame effect
         ctx.fillStyle = Math.random() > 0.5 ? '#f90' : '#f00';
-        ctx.fillRect(this.x + this.width/2 - 6, this.y + this.height, 4, 10 + Math.random()*10);
-        ctx.fillRect(this.x + this.width/2 + 2, this.y + this.height, 4, 10 + Math.random()*10);
-        
+        ctx.fillRect(this.x + this.width / 2 - 6, this.y + this.height, 4, 10 + Math.random() * 10);
+        ctx.fillRect(this.x + this.width / 2 + 2, this.y + this.height, 4, 10 + Math.random() * 10);
+
         // Draw ship
         ctx.drawImage(sprites.player.img, this.x, this.y);
     }
@@ -233,7 +236,7 @@ class Bullet {
         ctx.fillStyle = '#fff';
         ctx.fillRect(this.x, this.y, this.width, this.height);
         ctx.fillStyle = this.color;
-        ctx.fillRect(this.x-1, this.y+2, this.width+2, this.height-4);
+        ctx.fillRect(this.x - 1, this.y + 2, this.width + 2, this.height - 4);
     }
 }
 
@@ -247,26 +250,42 @@ class Enemy {
         this.speed = 80 + Math.random() * 50 + (score * 1.5);
         this.active = true;
         this.hp = 1;
-        
+
         // Sine wave movement
         this.startX = this.x;
         this.waveOffset = Math.random() * Math.PI * 2;
         this.waveFreq = 0.05 + Math.random() * 0.05;
         this.amp = 20 + Math.random() * 30;
+
+        this.shootTimer = 1 + Math.random() * 2;
     }
 
     update(dt) {
         this.y += this.speed * dt;
         // Swerve left and right
         this.x = this.startX + Math.sin(this.y * this.waveFreq + this.waveOffset) * this.amp;
-        
+
         // Wrap X around bounds to prevent enemy from sliding completely off screen
         if (this.x < -this.width) this.startX += canvas.width;
         if (this.x > canvas.width) this.startX -= canvas.width;
 
+        this.shootTimer -= dt;
+        if (this.shootTimer <= 0) {
+            this.shoot();
+            this.shootTimer = 2 + Math.random() * 3;
+        }
+
         if (this.y > canvas.height) {
             this.active = false; // Escaped
+            if (GAME_STATE === 'PLAYING') {
+                loseHeart();
+            }
         }
+    }
+
+    shoot() {
+        enemyBullets.push(new Bullet(this.x + this.width / 2 - 2, this.y + this.height, 300, '#f00'));
+        // We could play a separate sound for enemy shooting, but it might get noisy.
     }
 
     draw(ctx) {
@@ -302,7 +321,7 @@ class Particle {
 class Starfield {
     constructor() {
         this.stars = [];
-        for(let i=0; i<80; i++) {
+        for (let i = 0; i < 80; i++) {
             this.stars.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
@@ -315,7 +334,7 @@ class Starfield {
         this.stars.forEach(s => {
             // Stars move faster when player moves up? Just constant speed for space
             s.y += s.speed * dt;
-            if(s.y > canvas.height) {
+            if (s.y > canvas.height) {
                 s.y = 0;
                 s.x = Math.random() * canvas.width;
             }
@@ -324,7 +343,7 @@ class Starfield {
     draw(ctx) {
         ctx.fillStyle = '#fff';
         this.stars.forEach(s => {
-            const opacity = s.speed / 50; 
+            const opacity = s.speed / 50;
             ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, opacity)})`;
             ctx.fillRect(s.x, s.y, s.size, s.size);
         });
@@ -334,6 +353,7 @@ class Starfield {
 // --- Engine State ---
 let player;
 let bullets = [];
+let enemyBullets = [];
 let enemies = [];
 let particles = [];
 let starfield;
@@ -341,7 +361,7 @@ let enemySpawnTimer = 0;
 
 function spawnExplosion(x, y, primaryColor) {
     playSound('explosion');
-    for(let i=0; i<20; i++){
+    for (let i = 0; i < 20; i++) {
         // mixed sparks
         const color = Math.random() > 0.5 ? primaryColor : (Math.random() > 0.5 ? '#fff' : '#ff0');
         particles.push(new Particle(x, y, color));
@@ -352,11 +372,36 @@ function initGame() {
     initAudio();
     player = new Player();
     bullets = [];
+    enemyBullets = [];
     enemies = [];
     particles = [];
     score = 0;
-    scoreDisplay.innerText = `SCORE: ${score}`;
+    hearts = maxHearts;
+    updateScore();
+    updateHearts();
     enemySpawnTimer = 1;
+}
+
+function updateScore() {
+    scoreDisplay.innerText = `SCORE: ${score}`;
+}
+
+function updateHearts() {
+    let html = '';
+    for (let i = 0; i < maxHearts; i++) {
+        if (i < hearts) html += '<span class="heart">♥</span>';
+        else html += '<span class="heart empty">♥</span>';
+    }
+    heartsDisplay.innerHTML = html;
+}
+
+function loseHeart() {
+    hearts--;
+    updateHearts();
+    spawnExplosion(player.x + player.width / 2, player.y + player.height / 2, '#f00');
+    if (hearts <= 0) {
+        gameOver();
+    }
 }
 
 function checkCollisions() {
@@ -370,14 +415,14 @@ function checkCollisions() {
                 b.x + b.width > e.x &&
                 b.y < e.y + e.height &&
                 b.y + b.height > e.y) {
-                    
+
                 b.active = false;
                 e.hp--;
                 if (e.hp <= 0) {
                     e.active = false;
                     score += 10;
-                    scoreDisplay.innerText = `SCORE: ${score}`;
-                    spawnExplosion(e.x + e.width/2, e.y + e.height/2, '#0f0');
+                    updateScore();
+                    spawnExplosion(e.x + e.width / 2, e.y + e.height / 2, '#0f0');
                 }
             }
         });
@@ -392,8 +437,24 @@ function checkCollisions() {
             player.x + player.width - shrink > e.x + shrink &&
             player.y + shrink < e.y + e.height - shrink &&
             player.y + player.height - shrink > e.y + shrink) {
-                
-            gameOver();
+
+            e.active = false;
+            spawnExplosion(e.x + e.width / 2, e.y + e.height / 2, '#0f0');
+            loseHeart();
+        }
+    });
+
+    // Enemy bullets hit Player
+    enemyBullets.forEach(b => {
+        if (!b.active) return;
+        const shrink = 4;
+        if (b.x < player.x + player.width - shrink &&
+            b.x + b.width > player.x + shrink &&
+            b.y < player.y + player.height - shrink &&
+            b.y + b.height > player.y + shrink) {
+
+            b.active = false;
+            loseHeart();
         }
     });
 }
@@ -410,8 +471,8 @@ function startGame() {
 function gameOver() {
     GAME_STATE = 'GAMEOVER';
     playSound('gameover');
-    spawnExplosion(player.x + player.width/2, player.y + player.height/2, '#0ff');
-    
+    spawnExplosion(player.x + player.width / 2, player.y + player.height / 2, '#0ff');
+
     setTimeout(() => {
         gameOverScreen.classList.remove('hidden');
         finalScoreDisplay.innerText = score;
@@ -447,6 +508,7 @@ function gameLoop(timestamp) {
 
         player.update(dt);
         bullets.forEach(b => b.update(dt));
+        enemyBullets.forEach(b => b.update(dt));
         enemies.forEach(e => e.update(dt));
         particles.forEach(p => p.update(dt));
 
@@ -454,23 +516,25 @@ function gameLoop(timestamp) {
 
         // Cleanup inactive entities
         bullets = bullets.filter(b => b.active);
+        enemyBullets = enemyBullets.filter(b => b.active);
         enemies = enemies.filter(e => e.active);
         particles = particles.filter(p => p.life > 0);
 
         // Rendering order: player behind bullets, particles on top
         player.draw(ctx);
         bullets.forEach(b => b.draw(ctx));
+        enemyBullets.forEach(b => b.draw(ctx));
         enemies.forEach(e => e.draw(ctx));
         particles.forEach(p => p.draw(ctx));
 
     } else if (GAME_STATE === 'GAMEOVER') {
-         // Keep doing particle physics over dead player
-         particles.forEach(p => p.update(dt));
-         particles = particles.filter(p => p.life > 0);
-         particles.forEach(p => p.draw(ctx));
-         
-         // Keep existing entities frozen but drawn beneath the modal
-         enemies.forEach(e => e.draw(ctx));
+        // Keep doing particle physics over dead player
+        particles.forEach(p => p.update(dt));
+        particles = particles.filter(p => p.life > 0);
+        particles.forEach(p => p.draw(ctx));
+
+        // Keep existing entities frozen but drawn beneath the modal
+        enemies.forEach(e => e.draw(ctx));
     }
 
     requestAnimationFrame(gameLoop);

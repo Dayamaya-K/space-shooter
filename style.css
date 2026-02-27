@@ -1,4 +1,5 @@
-body, html {
+body,
+html {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -7,7 +8,8 @@ body, html {
     overflow: hidden;
     font-family: 'Press Start 2P', monospace;
     color: #fff;
-    touch-action: none; /* Prevent browser behavior like pull-to-refresh on mobile */
+    touch-action: none;
+    /* Prevent browser behavior like pull-to-refresh on mobile */
     user-select: none;
 }
 
@@ -15,21 +17,24 @@ body, html {
     position: relative;
     width: 100%;
     height: 100%;
-    max-width: 600px; /* Constrain width to phone size for desktop play */
+    max-width: 600px;
+    /* Constrain width to phone size for desktop play */
     margin: 0 auto;
-    background-color: #0a0a1a; /* Deep space dark blue */
-    
+    background-color: #0a0a1a;
+    /* Deep space dark blue */
+
     /* Subtle CRT Scanline effect using CSS gradients */
-    background-image: linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.2) 50%);
+    background-image: linear-gradient(rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
     background-size: 100% 4px;
-    box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
 }
 
 canvas {
     display: block;
     width: 100%;
     height: 100%;
-    image-rendering: pixelated; /* Ensures upscaled pixel art remains sharp */
+    image-rendering: pixelated;
+    /* Ensures upscaled pixel art remains sharp */
 }
 
 #ui-layer {
@@ -38,7 +43,8 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* Ignore clicks so underlying events work */
+    pointer-events: none;
+    /* Ignore clicks so underlying events work */
 }
 
 #score-display {
@@ -48,6 +54,23 @@ canvas {
     font-size: 12px;
     text-shadow: 2px 2px 0px #000;
     color: #ff0;
+}
+
+#hearts-display {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 16px;
+    text-shadow: 2px 2px 0px #000;
+}
+
+.heart {
+    color: #f00;
+    margin-left: 2px;
+}
+
+.heart.empty {
+    color: #444;
 }
 
 .screen {
@@ -60,8 +83,10 @@ canvas {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    background: rgba(0, 0, 0, 0.85); /* Darken play area during menus */
-    pointer-events: auto; /* Catch clicks for buttons */
+    background: rgba(0, 0, 0, 0.85);
+    /* Darken play area during menus */
+    pointer-events: auto;
+    /* Catch clicks for buttons */
     z-index: 10;
 }
 
@@ -110,7 +135,8 @@ button {
     box-shadow: 4px 4px 0px #555;
 }
 
-button:hover, button:active {
+button:hover,
+button:active {
     background: #fff;
     color: #000;
     box-shadow: none;
@@ -128,7 +154,8 @@ button:hover, button:active {
     padding: 0 15px;
     box-sizing: border-box;
     pointer-events: auto;
-    opacity: 0.6; /* Semi transparent so we can see stuff behind it */
+    opacity: 0.6;
+    /* Semi transparent so we can see stuff behind it */
     z-index: 5;
 }
 
@@ -143,7 +170,7 @@ button:hover, button:active {
     justify-content: center;
     align-items: center;
     font-size: 18px;
-    box-shadow: 0 4px 0px rgba(0,0,0,0.5);
+    box-shadow: 0 4px 0px rgba(0, 0, 0, 0.5);
 }
 
 .control-btn:active {
@@ -161,17 +188,27 @@ button:hover, button:active {
 
 @media (min-width: 768px) {
     #mobile-controls {
-        display: none; /* Hide virtual buttons on larger screens assuming keyboard */
+        display: none;
+        /* Hide virtual buttons on larger screens assuming keyboard */
     }
+
     h1 {
         font-size: 36px;
     }
-    p, button, #score-display {
+
+    p,
+    button,
+    #score-display {
         font-size: 16px;
     }
+
     .text-small {
         font-size: 12px;
     }
-} else {
-    .desktop-only { display: none; }
+}
+
+else {
+    .desktop-only {
+        display: none;
+    }
 }

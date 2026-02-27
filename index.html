@@ -1,36 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <!-- Viewport settings to lock zooming and scrolling on mobile devices -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
     <title>Retro Space Shooter</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div id="game-container">
         <!-- Main Game Canvas -->
         <canvas id="gameCanvas"></canvas>
-        
+
         <!-- UI Overlays -->
         <div id="ui-layer">
             <div id="score-display">SCORE: 0</div>
-            
+            <div id="hearts-display"></div>
+
             <div id="start-screen" class="screen">
                 <h1>STAR<br>BLASTER</h1>
                 <p>90s ACTION AWAITS</p>
                 <div class="desktop-only text-small">Use ARROW KEYS & SPACE</div>
                 <button id="start-btn">INSERT COIN (START)</button>
             </div>
-            
+
             <div id="game-over-screen" class="screen hidden">
                 <h1 class="red-text">GAME OVER</h1>
                 <p>FINAL SCORE: <span id="final-score">0</span></p>
                 <button id="restart-btn">CONTINUE?</button>
             </div>
         </div>
-        
+
         <!-- Mobile Touch Controls -->
         <div id="mobile-controls">
             <div class="control-btn" id="btn-left">◀</div>
@@ -38,7 +42,8 @@
             <div class="control-btn" id="btn-right">▶</div>
         </div>
     </div>
-    
+
     <script src="game.js"></script>
 </body>
+
 </html>
