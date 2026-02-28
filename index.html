@@ -24,6 +24,7 @@
             <div id="start-screen" class="screen">
                 <h1>STAR<br>BLASTER</h1>
                 <p>90s ACTION AWAITS</p>
+                <input type="text" id="player-name" placeholder="Enter Name..." maxlength="10">
                 <div class="desktop-only text-small">Use ARROW KEYS & SPACE</div>
                 <button id="start-btn">INSERT COIN (START)</button>
             </div>
@@ -31,6 +32,14 @@
             <div id="game-over-screen" class="screen hidden">
                 <h1 class="red-text">GAME OVER</h1>
                 <p>FINAL SCORE: <span id="final-score">0</span></p>
+
+                <div id="leaderboard-container">
+                    <h3>TOP 5 PILOTS</h3>
+                    <ul id="leaderboard-list">
+                        <li>Loading...</li>
+                    </ul>
+                </div>
+
                 <button id="restart-btn">CONTINUE?</button>
             </div>
         </div>

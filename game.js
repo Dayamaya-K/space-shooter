@@ -11,6 +11,13 @@ const gameOverScreen = document.getElementById('game-over-screen');
 const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
 const finalScoreDisplay = document.getElementById('final-score');
+const playerNameInput = document.getElementById('player-name');
+const leaderboardList = document.getElementById('leaderboard-list');
+
+// Supabase Config
+const SUPABASE_URL = 'https://yfrtgfvxhlzkuprmoluw.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmcnRnZnZ4aGx6a3Vwcm1vbHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMDQ0NjEsImV4cCI6MjA4Nzc4MDQ2MX0.cxiExZZQFIgavUXjBvy8_GyBQwHdDVvupycU4_5Lrio';
+
 
 // Mobile Buttons
 const btnLeft = document.getElementById('btn-left');
@@ -19,6 +26,7 @@ const btnFire = document.getElementById('btn-fire');
 
 let GAME_STATE = 'START'; // START, PLAYING, GAMEOVER
 let score = 0;
+let currentPlayerName = 'Player1';
 const maxHearts = 10;
 let hearts = maxHearts;
 let lastTime = 0;
@@ -359,6 +367,60 @@ let particles = [];
 let starfield;
 let enemySpawnTimer = 0;
 
+// --- API Integration (Supabase) ---
+async function submitScore(name, finalScore) {
+    if (finalScore === 0) return; // Don't submit 0 scores
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/leaderboards`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ player_name: name, score: finalScore })
+        });
+    } catch (e) {
+        console.error("Error submitting score:", e);
+    }
+}
+
+async function fetchLeaderboards() {
+    leaderboardList.innerHTML = '<li>Loading...</li>';
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/leaderboards?select=player_name,score&order=score.desc&limit=5`, {
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+        });
+        const data = await res.json();
+
+        leaderboardList.innerHTML = '';
+        if (data && data.length > 0) {
+            data.forEach(entry => {
+                const li = document.createElement('li');
+
+                const nameSpan = document.createElement('span');
+                nameSpan.innerText = entry.player_name;
+
+                const scoreSpan = document.createElement('span');
+                scoreSpan.innerText = entry.score;
+
+                li.appendChild(nameSpan);
+                li.appendChild(scoreSpan);
+                leaderboardList.appendChild(li);
+            });
+        } else {
+            leaderboardList.innerHTML = '<li>No scores yet!</li>';
+        }
+    } catch (e) {
+        console.error("Error fetching leaderboards:", e);
+        leaderboardList.innerHTML = '<li>Error loading data</li>';
+    }
+}
+
 function spawnExplosion(x, y, primaryColor) {
     playSound('explosion');
     for (let i = 0; i < 20; i++) {
@@ -460,6 +522,9 @@ function checkCollisions() {
 }
 
 function startGame() {
+    let nameVal = playerNameInput.value.trim();
+    currentPlayerName = nameVal === '' ? 'Player1' : nameVal;
+
     GAME_STATE = 'PLAYING';
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
@@ -472,6 +537,11 @@ function gameOver() {
     GAME_STATE = 'GAMEOVER';
     playSound('gameover');
     spawnExplosion(player.x + player.width / 2, player.y + player.height / 2, '#0ff');
+
+    // Submit score and then refresh the leaderboard UI
+    submitScore(currentPlayerName, score).then(() => {
+        fetchLeaderboards();
+    });
 
     setTimeout(() => {
         gameOverScreen.classList.remove('hidden');
