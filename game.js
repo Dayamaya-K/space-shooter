@@ -12,7 +12,7 @@ const startBtn = document.getElementById('start-btn');
 const restartBtn = document.getElementById('restart-btn');
 const finalScoreDisplay = document.getElementById('final-score');
 const playerNameInput = document.getElementById('player-name');
-const leaderboardList = document.getElementById('leaderboard-list');
+const leaderboardBody = document.getElementById('leaderboard-body');
 
 // Supabase Config
 const SUPABASE_URL = 'https://yfrtgfvxhlzkuprmoluw.supabase.co';
@@ -387,7 +387,7 @@ async function submitScore(name, finalScore) {
 }
 
 async function fetchLeaderboards() {
-    leaderboardList.innerHTML = '<li>Loading...</li>';
+    leaderboardBody.innerHTML = '<tr><td colspan="3" style="text-align:center">Loading...</td></tr>';
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/leaderboards?select=player_name,score&order=score.desc&limit=5`, {
             headers: {
@@ -397,27 +397,31 @@ async function fetchLeaderboards() {
         });
         const data = await res.json();
 
-        leaderboardList.innerHTML = '';
+        leaderboardBody.innerHTML = '';
         if (data && data.length > 0) {
-            data.forEach(entry => {
-                const li = document.createElement('li');
+            data.forEach((entry, index) => {
+                const tr = document.createElement('tr');
 
-                const nameSpan = document.createElement('span');
-                nameSpan.innerText = entry.player_name;
+                const rankTd = document.createElement('td');
+                rankTd.innerText = index + 1;
 
-                const scoreSpan = document.createElement('span');
-                scoreSpan.innerText = entry.score;
+                const nameTd = document.createElement('td');
+                nameTd.innerText = entry.player_name;
 
-                li.appendChild(nameSpan);
-                li.appendChild(scoreSpan);
-                leaderboardList.appendChild(li);
+                const scoreTd = document.createElement('td');
+                scoreTd.innerText = entry.score;
+
+                tr.appendChild(rankTd);
+                tr.appendChild(nameTd);
+                tr.appendChild(scoreTd);
+                leaderboardBody.appendChild(tr);
             });
         } else {
-            leaderboardList.innerHTML = '<li>No scores yet!</li>';
+            leaderboardBody.innerHTML = '<tr><td colspan="3" style="text-align:center">No scores yet!</td></tr>';
         }
     } catch (e) {
         console.error("Error fetching leaderboards:", e);
-        leaderboardList.innerHTML = '<li>Error loading data</li>';
+        leaderboardBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#f00;">Error loading data</td></tr>';
     }
 }
 
