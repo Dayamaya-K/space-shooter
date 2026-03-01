@@ -13,6 +13,13 @@ const restartBtn = document.getElementById('restart-btn');
 const finalScoreDisplay = document.getElementById('final-score');
 const playerNameInput = document.getElementById('player-name');
 const leaderboardBody = document.getElementById('leaderboard-body');
+const controlToggleBtn = document.getElementById('control-toggle-btn');
+const levelUpScreen = document.getElementById('level-up-screen');
+const orbsDisplay = document.getElementById('orbs-display');
+const levelDisplay = document.getElementById('level-display');
+const alienHpDisplay = document.getElementById('alien-hp-display');
+const btnUpgradeFireFreq = document.getElementById('upgrade-fire-freq');
+const btnUpgradeFireWidth = document.getElementById('upgrade-fire-width');
 
 // Supabase Config
 const SUPABASE_URL = 'https://yfrtgfvxhlzkuprmoluw.supabase.co';
@@ -27,6 +34,16 @@ const btnFire = document.getElementById('btn-fire');
 let GAME_STATE = 'START'; // START, PLAYING, GAMEOVER
 let score = 0;
 let currentPlayerName = 'Player1';
+let controlMode = 'touch'; // 'touch' or 'tilt'
+let tiltX = 0; // -1 to 1 based on phone tilt
+
+// Progression State
+let orbsCollected = 0;
+let currentLevel = 1;
+let alienBaseHp = 1;
+let playerFireRateTier = 1;
+let playerFireWidthTier = 1;
+
 const maxHearts = 10;
 let hearts = maxHearts;
 let lastTime = 0;
@@ -111,6 +128,66 @@ bindTouch(btnLeft, 'left');
 bindTouch(btnRight, 'right');
 bindTouch(btnFire, 'fire');
 
+if (controlToggleBtn) {
+    controlToggleBtn.addEventListener('click', () => {
+        controlMode = controlMode === 'touch' ? 'tilt' : 'touch';
+        controlToggleBtn.innerText = `CONTROLS: ${controlMode.toUpperCase()}`;
+    });
+}
+
+function handleOrientation(event) {
+    if (controlMode !== 'tilt') return;
+
+    // gamma is left-to-right tilt in degrees, where right is positive
+    let gamma = event.gamma;
+
+    if (gamma === null) return;
+
+    // Clamp gamma between -45 and 45 degrees
+    if (gamma > 45) gamma = 45;
+    if (gamma < -45) gamma = -45;
+
+    // Apply a small deadzone of about 5 degrees
+    if (Math.abs(gamma) < 5) {
+        tiltX = 0;
+    } else {
+        // Normalize to -1 ... 1
+        // (gamma - Math.sign(gamma) * 5) maps 5..45 mapping to 0..40, then divided by 40 -> 0..1
+        tiltX = (gamma - Math.sign(gamma) * 5) / 40;
+    }
+}
+
+function initDeviceOrientation() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        // iOS 13+ devices
+        DeviceOrientationEvent.requestPermission()
+            .then(permissionState => {
+                if (permissionState === 'granted') {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                } else {
+                    alert('Tilt permission denied. Reverting to Touch controls.');
+                    controlMode = 'touch';
+                    controlToggleBtn.innerText = `CONTROLS: TOUCH`;
+                    updateControlUI();
+                }
+            })
+            .catch(console.error);
+    } else {
+        // Non iOS 13+ devices
+        window.addEventListener('deviceorientation', handleOrientation);
+    }
+}
+
+function updateControlUI() {
+    if (controlMode === 'tilt') {
+        btnLeft.style.display = 'none';
+        btnRight.style.display = 'none';
+    } else {
+        btnLeft.style.display = 'flex';
+        btnRight.style.display = 'flex';
+    }
+}
+
 // --- Procedural Pixel Art Generator ---
 // We create sprites programmatically via an offscreen canvas.
 // This is perfect for single-file, zero-asset GitHub Pages.
@@ -145,6 +222,19 @@ const spriteDefinitions = {
             "  G  G  G  ",
             " G       G ",
             "G         G"
+        ]
+    },
+    orb: {
+        colors: { 'Y': '#ff0', 'O': '#f90', 'W': '#fff' },
+        data: [
+            "   WW   ",
+            "  WYYW  ",
+            " WYYYYW ",
+            "WYYYYYYW",
+            "WYYYYYYW",
+            " WYYYYW ",
+            "  WOOW  ",
+            "   WW   "
         ]
     }
 };
@@ -185,12 +275,27 @@ class Player {
         this.y = canvas.height - this.height - 100; // Offset above thumbs
         this.speed = 250;
         this.cooldown = 0;
-        this.fireRate = 0.2;
+        this.baseFireRate = 0.2;
+    }
+
+    get fireRate() {
+        // Reduce cd per tier: config to taste
+        return Math.max(0.05, this.baseFireRate - (playerFireRateTier - 1) * 0.03);
     }
 
     update(dt) {
-        if (keys.left) this.x -= this.speed * dt;
-        if (keys.right) this.x += this.speed * dt;
+        // Handle horizontal movement based on control mode and keys
+        if (controlMode === 'touch') {
+            if (keys.left) this.x -= this.speed * dt;
+            if (keys.right) this.x += this.speed * dt;
+        } else if (controlMode === 'tilt') {
+            // Analog steering feel: tiltX is between -1 and 1
+            this.x += this.speed * tiltX * dt;
+
+            // Allow keyboard to still override/work in tilt mode for desktop testing
+            if (keys.left) this.x -= this.speed * dt;
+            if (keys.right) this.x += this.speed * dt;
+        }
 
         // Boundaries
         if (this.x < 0) this.x = 0;
@@ -205,9 +310,23 @@ class Player {
     }
 
     shoot() {
-        // Shoot two lasers from the wings
-        bullets.push(new Bullet(this.x + 4, this.y, -400, '#0ff'));
-        bullets.push(new Bullet(this.x + this.width - 8, this.y, -400, '#0ff'));
+        if (playerFireWidthTier === 1) {
+            // Standard dual lasers
+            bullets.push(new Bullet(this.x + 4, this.y, -400, '#0ff'));
+            bullets.push(new Bullet(this.x + this.width - 8, this.y, -400, '#0ff'));
+        } else if (playerFireWidthTier === 2) {
+            // Triple spread
+            bullets.push(new Bullet(this.x + 4, this.y, -400, '#0ff', -50));
+            bullets.push(new Bullet(this.x + this.width / 2 - 2, this.y - 10, -420, '#0ff', 0));
+            bullets.push(new Bullet(this.x + this.width - 8, this.y, -400, '#0ff', 50));
+        } else {
+            // Quint spread
+            bullets.push(new Bullet(this.x, this.y + 5, -380, '#0ff', -100));
+            bullets.push(new Bullet(this.x + 4, this.y, -400, '#0ff', -40));
+            bullets.push(new Bullet(this.x + this.width / 2 - 2, this.y - 10, -420, '#0ff', 0));
+            bullets.push(new Bullet(this.x + this.width - 8, this.y, -400, '#0ff', 40));
+            bullets.push(new Bullet(this.x + this.width, this.y + 5, -380, '#0ff', 100));
+        }
         playSound('shoot');
     }
 
@@ -223,19 +342,21 @@ class Player {
 }
 
 class Bullet {
-    constructor(x, y, vy, color) {
+    constructor(x, y, vy, color, vx = 0) {
         this.x = x;
         this.y = y;
         this.width = 4;
         this.height = 16;
         this.vy = vy;
+        this.vx = vx;
         this.color = color;
         this.active = true;
     }
 
     update(dt) {
         this.y += this.vy * dt;
-        if (this.y < -this.height || this.y > canvas.height) {
+        this.x += this.vx * dt;
+        if (this.y < -this.height || this.y > canvas.height || this.x < -this.width || this.x > canvas.width) {
             this.active = false;
         }
     }
@@ -254,10 +375,10 @@ class Enemy {
         this.height = sprites.enemy.height;
         this.x = Math.random() * (canvas.width - this.width);
         this.y = -this.height;
-        // Increase base speed slightly with score
-        this.speed = 80 + Math.random() * 50 + (score * 1.5);
+        // Increase base speed slightly with score and level
+        this.speed = 80 + Math.random() * 50 + (score * 1.5) + (currentLevel * 5);
         this.active = true;
-        this.hp = 1;
+        this.hp = alienBaseHp; // Scaled health
 
         // Sine wave movement
         this.startX = this.x;
@@ -298,6 +419,39 @@ class Enemy {
 
     draw(ctx) {
         ctx.drawImage(sprites.enemy.img, this.x, this.y);
+    }
+}
+
+class Orb {
+    constructor() {
+        this.width = sprites.orb.width;
+        this.height = sprites.orb.height;
+        this.x = Math.random() * (canvas.width - this.width);
+        this.y = -this.height;
+        this.speed = 60 + Math.random() * 40;
+        this.active = true;
+        this.hp = 1; // Dies in 1 hit
+
+        this.startX = this.x;
+        this.waveOffset = Math.random() * Math.PI * 2;
+        this.waveFreq = 0.08;
+        this.amp = 50;
+    }
+
+    update(dt) {
+        this.y += this.speed * dt;
+        this.x = this.startX + Math.sin(this.y * this.waveFreq + this.waveOffset) * this.amp;
+
+        if (this.x < -this.width) this.startX += canvas.width;
+        if (this.x > canvas.width) this.startX -= canvas.width;
+
+        if (this.y > canvas.height) {
+            this.active = false;
+        }
+    }
+
+    draw(ctx) {
+        ctx.drawImage(sprites.orb.img, this.x, this.y);
     }
 }
 
@@ -363,6 +517,7 @@ let player;
 let bullets = [];
 let enemyBullets = [];
 let enemies = [];
+let orbs = [];
 let particles = [];
 let starfield;
 let enemySpawnTimer = 0;
@@ -440,13 +595,56 @@ function initGame() {
     bullets = [];
     enemyBullets = [];
     enemies = [];
+    orbs = [];
     particles = [];
     score = 0;
     hearts = maxHearts;
+
+    // Reset Progression
+    orbsCollected = 0;
+    currentLevel = 1;
+    alienBaseHp = 1;
+    playerFireRateTier = 1;
+    playerFireWidthTier = 1;
+
     updateScore();
     updateHearts();
+    updateProgressionUI();
     enemySpawnTimer = 1;
 }
+
+function updateProgressionUI() {
+    orbsDisplay.innerText = `Orbs: ${orbsCollected}/5`;
+    levelDisplay.innerText = `Lvl: ${currentLevel}`;
+    alienHpDisplay.innerText = `HP: ${alienBaseHp}`;
+}
+
+function triggerLevelUp() {
+    GAME_STATE = 'LEVEL_UP';
+    playSound('shoot'); // Could be a level up sound
+    levelUpScreen.classList.remove('hidden');
+}
+
+function applyUpgrade(type) {
+    if (type === 'fire_freq') {
+        playerFireRateTier++;
+    } else if (type === 'fire_width') {
+        playerFireWidthTier++;
+    }
+
+    orbsCollected = 0;
+    currentLevel++;
+    alienBaseHp++;
+
+    updateProgressionUI();
+    levelUpScreen.classList.add('hidden');
+    GAME_STATE = 'PLAYING';
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+btnUpgradeFireFreq.addEventListener('click', () => applyUpgrade('fire_freq'));
+btnUpgradeFireWidth.addEventListener('click', () => applyUpgrade('fire_width'));
 
 function updateScore() {
     scoreDisplay.innerText = `SCORE: ${score}`;
@@ -486,9 +684,30 @@ function checkCollisions() {
                 e.hp--;
                 if (e.hp <= 0) {
                     e.active = false;
-                    score += 10;
+                    score += 10 * currentLevel; // Bonus score for tougher enemies
                     updateScore();
                     spawnExplosion(e.x + e.width / 2, e.y + e.height / 2, '#0f0');
+                }
+            }
+        });
+
+        // Player bullets hit Orbs
+        orbs.forEach(orb => {
+            if (!orb.active) return;
+            if (b.x < orb.x + orb.width &&
+                b.x + b.width > orb.x &&
+                b.y < orb.y + orb.height &&
+                b.y + b.height > orb.y) {
+
+                b.active = false;
+                orb.active = false;
+                spawnExplosion(orb.x + orb.width / 2, orb.y + orb.height / 2, '#ff0');
+
+                orbsCollected++;
+                updateProgressionUI();
+
+                if (orbsCollected >= 5) {
+                    triggerLevelUp();
                 }
             }
         });
@@ -532,6 +751,12 @@ function startGame() {
     GAME_STATE = 'PLAYING';
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
+
+    updateControlUI();
+    if (controlMode === 'tilt') {
+        initDeviceOrientation();
+    }
+
     initGame();
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
@@ -574,9 +799,14 @@ function gameLoop(timestamp) {
         // Spawner logic
         enemySpawnTimer -= dt;
         if (enemySpawnTimer <= 0) {
-            enemies.push(new Enemy());
+            // 20% chance to spawn an orb instead of an enemy
+            if (Math.random() < 0.20) {
+                orbs.push(new Orb());
+            } else {
+                enemies.push(new Enemy());
+            }
             // Difficulty curve
-            const respawnRate = Math.max(0.3, 1.5 - (score * 0.005));
+            const respawnRate = Math.max(0.3, 1.5 - (score * 0.005) - (currentLevel * 0.02));
             enemySpawnTimer = respawnRate;
         }
 
@@ -584,6 +814,7 @@ function gameLoop(timestamp) {
         bullets.forEach(b => b.update(dt));
         enemyBullets.forEach(b => b.update(dt));
         enemies.forEach(e => e.update(dt));
+        orbs.forEach(o => o.update(dt));
         particles.forEach(p => p.update(dt));
 
         checkCollisions();
@@ -592,6 +823,7 @@ function gameLoop(timestamp) {
         bullets = bullets.filter(b => b.active);
         enemyBullets = enemyBullets.filter(b => b.active);
         enemies = enemies.filter(e => e.active);
+        orbs = orbs.filter(o => o.active);
         particles = particles.filter(p => p.life > 0);
 
         // Rendering order: player behind bullets, particles on top
@@ -599,6 +831,7 @@ function gameLoop(timestamp) {
         bullets.forEach(b => b.draw(ctx));
         enemyBullets.forEach(b => b.draw(ctx));
         enemies.forEach(e => e.draw(ctx));
+        orbs.forEach(o => o.draw(ctx));
         particles.forEach(p => p.draw(ctx));
 
     } else if (GAME_STATE === 'GAMEOVER') {
@@ -609,6 +842,15 @@ function gameLoop(timestamp) {
 
         // Keep existing entities frozen but drawn beneath the modal
         enemies.forEach(e => e.draw(ctx));
+        orbs.forEach(o => o.draw(ctx));
+    } else if (GAME_STATE === 'LEVEL_UP') {
+        // Draw scene frozen underneath menu
+        player.draw(ctx);
+        bullets.forEach(b => b.draw(ctx));
+        enemyBullets.forEach(b => b.draw(ctx));
+        enemies.forEach(e => e.draw(ctx));
+        orbs.forEach(o => o.draw(ctx));
+        particles.forEach(p => p.draw(ctx));
     }
 
     requestAnimationFrame(gameLoop);

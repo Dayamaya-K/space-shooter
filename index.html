@@ -21,11 +21,20 @@
             <div id="score-display">SCORE: 0</div>
             <div id="hearts-display"></div>
 
+            <div id="level-stats">
+                <span id="orbs-display" class="stat-text">Orbs: 0/5</span>
+                <span id="level-display" class="stat-text">Lvl: 1</span>
+                <span id="alien-hp-display" class="stat-text">HP: 1</span>
+            </div>
+
             <div id="start-screen" class="screen">
                 <h1>STAR<br>BLASTER</h1>
                 <p>90s ACTION AWAITS</p>
                 <input type="text" id="player-name" placeholder="Enter Name..." maxlength="10">
                 <div class="desktop-only text-small">Use ARROW KEYS & SPACE</div>
+                <button id="control-toggle-btn"
+                    style="margin-bottom: 15px; background: #222; border-color: #0ff; color: #0ff;">CONTROLS:
+                    TOUCH</button>
                 <button id="start-btn">INSERT COIN (START)</button>
             </div>
 
@@ -52,6 +61,14 @@
                 </div>
 
                 <button id="restart-btn">CONTINUE?</button>
+            </div>
+            <div id="level-up-screen" class="screen hidden">
+                <h1 style="color: #ff0; text-shadow: 4px 4px 0px #f00;">LEVEL UP!</h1>
+                <p>CHOOSE YOUR UPGRADE</p>
+                <button id="upgrade-fire-freq" class="upgrade-btn">INCREASE FIRE FREQ</button>
+                <br>
+                <button id="upgrade-fire-width" class="upgrade-btn" style="margin-top: 15px;">INCREASE FIRE
+                    WIDTH</button>
             </div>
         </div>
 

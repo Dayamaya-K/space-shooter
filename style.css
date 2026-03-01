@@ -73,6 +73,22 @@ canvas {
     color: #444;
 }
 
+#level-stats {
+    position: absolute;
+    bottom: 90px;
+    right: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.stat-text {
+    font-size: 10px;
+    color: #0ff;
+    text-shadow: 2px 2px 0px #000;
+}
+
 .screen {
     position: absolute;
     top: 0;
@@ -230,6 +246,23 @@ button:active {
     color: #000;
     box-shadow: none;
     transform: translate(4px, 4px);
+}
+
+.upgrade-btn {
+    width: 80%;
+    max-width: 300px;
+    font-size: 10px;
+    background: #222;
+    border-color: #ff0;
+    color: #ff0;
+    white-space: normal;
+    line-height: 1.5;
+}
+
+.upgrade-btn:hover,
+.upgrade-btn:active {
+    background: #ff0;
+    color: #000;
 }
 
 /* Mobile Controls Layer */
